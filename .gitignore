@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.pytest_tmp/
+.pytest_*/
+.pytest_*/
+.venv/
+venv/
+
+# Runtime data and trained artifacts
+*.db
+*.sqlite3
+models/*
+!models/.gitkeep
+!models/phishing_model.joblib
+!models/phishing_preprocessor.joblib
+!models/phishing_model_metadata.json
+data/*
+!data/.gitkeep
+!data/raw/
+data/raw/*
+!data/raw/.gitkeep
+!data/raw/ember/
+data/raw/ember/*
+!data/raw/ember/.gitkeep
+!data/raw/bodmas/
+data/raw/bodmas/*
+!data/raw/bodmas/.gitkeep
+!data/processed/
+data/processed/*
+!data/processed/.gitkeep
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+build/
+dist/
+craft_malware.py
+test_malware.py
+test_malware.spec
+test_samples/**/*.exe
+
+# Editors and operating systems
+.idea/
+.DS_Store
+Thumbs.db
+
+# Local safe scanner fixtures (never commit executable files)
+safe_test_files/*.exe

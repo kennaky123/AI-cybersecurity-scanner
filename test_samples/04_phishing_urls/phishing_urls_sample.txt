@@ -1,0 +1,14 @@
+# Phishing URL Test Samples for AI Phishing Scanner
+# These URLs exhibit suspicious lexical features (IP address in URL, suspicious port, excessive subdomains, brand spoofing keywords)
+
+http://192.168.1.100:8080/paypal-login/verify.php
+https://login.appleid.verify-account-security-alert.org/auth/index.html
+http://secure-update.bankofamerica-login-auth.com:8443/verify
+https://chase-bank-alert.online-banking-check.com/secure/login
+http://facebook-account-security-checkpoint.xyz/login/verify.html
+https://microsoft-office365-password-reset.info/login.php
+http://binance-kyc-verification.crypto-safety.com/verify/index.html
+https://metamask-wallet-connect-sync.net/unlock/seed.html
+http://paypal-dispute-resolution.online-support.site/review
+https://steam-community-free-game-gift.ru/claim/login
+

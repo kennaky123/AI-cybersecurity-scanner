@@ -1,0 +1,14 @@
+# Legitimate URL Test Samples for AI Phishing Scanner
+# These URLs are standard benign domains with expected safe patterns
+
+https://google.com
+https://github.com/kubernetes/kubernetes
+https://wikipedia.org
+https://microsoft.com
+https://facebook.com
+https://youtube.com
+https://amazon.com
+https://stackoverflow.com/questions
+https://python.org/downloads
+https://fastapi.tiangolo.com
+

@@ -1,0 +1,118 @@
+{
+  "model": "Random Forest",
+  "model_key": "random_forest",
+  "dataset": "PhiUSIIL+Kaggle+PhishTank",
+  "dataset_path": "data\\processed\\phishing.csv",
+  "dataset_sha256": "44cd119b6fb1533d65f9a2dd1ed7bfafae025e0f85afbad8270737bb263e668a",
+  "random_seed": 42,
+  "selection_strategy": "validation lexicographic: f1, roc_auc, recall, precision, accuracy",
+  "total_samples": 684349,
+  "training_samples": 581696,
+  "selection_train_samples": 479044,
+  "validation_samples": 102652,
+  "test_samples": 102653,
+  "missing_feature_values_imputed": 0,
+  "features": [
+    "url_length",
+    "domain_length",
+    "path_length",
+    "query_length",
+    "num_dots",
+    "num_hyphens",
+    "num_underscores",
+    "num_slashes",
+    "num_digits",
+    "num_special_characters",
+    "num_subdomains",
+    "uses_https",
+    "contains_ip_address",
+    "contains_at_symbol",
+    "contains_suspicious_port",
+    "num_parameters",
+    "url_entropy",
+    "suspicious_keyword_count"
+  ],
+  "accuracy": 0.9786172834695528,
+  "precision": 0.9603574953394013,
+  "recall": 0.9790659325302552,
+  "f1": 0.9696214794823887,
+  "roc_auc": 0.9929164448764181,
+  "confusion_matrix": [
+    [
+      65428,
+      1446
+    ],
+    [
+      749,
+      35030
+    ]
+  ],
+  "validation_metrics": {
+    "Random Forest": {
+      "accuracy": 0.9771753107586798,
+      "precision": 0.9589819619471214,
+      "recall": 0.9762703337246352,
+      "f1": 0.9675489259151535,
+      "roc_auc": 0.992394468438775,
+      "confusion_matrix": [
+        [
+          65380,
+          1494
+        ],
+        [
+          849,
+          34929
+        ]
+      ]
+    },
+    "XGBoost": {
+      "accuracy": 0.9750418891010404,
+      "precision": 0.9514515602913993,
+      "recall": 0.9783106937223992,
+      "f1": 0.9646942094093652,
+      "roc_auc": 0.9931433798909874,
+      "confusion_matrix": [
+        [
+          65088,
+          1786
+        ],
+        [
+          776,
+          35002
+        ]
+      ]
+    },
+    "LightGBM": {
+      "accuracy": 0.9750516307524452,
+      "precision": 0.9514283384523389,
+      "recall": 0.9783665939963105,
+      "f1": 0.9647094489382518,
+      "roc_auc": 0.9930618250827049,
+      "confusion_matrix": [
+        [
+          65087,
+          1787
+        ],
+        [
+          774,
+          35004
+        ]
+      ]
+    }
+  },
+  "artifacts": {
+    "model": "phishing_model.joblib",
+    "preprocessor": "phishing_preprocessor.joblib"
+  },
+  "output_directory": "D:\\VScode\\ai-cybersecurity-scanner\\models",
+  "library_versions": {
+    "scikit_learn": "1.9.1",
+    "pandas": "3.0.6",
+    "numpy": "2.5.3"
+  },
+  "trained_at_utc": "2026-09-23T07:30:34.174706+00:00",
+  "artifact_sha256": {
+    "model": "15674346b43c5216d3e925e80b36109dce7b8fdea9d88c6e12974063880b4a46",
+    "preprocessor": "a079349bf3b81d4f7fcc2d7948ba22c6d15bfc90318ec8b5b49e198ebfb3f990"
+  }
+}
