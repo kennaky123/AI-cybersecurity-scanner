@@ -11,6 +11,8 @@ import joblib
 import numpy as np
 import pandas as pd
 
+from urllib.parse import urlsplit
+
 from ml.phishing.features import FEATURE_NAMES
 
 from .feature_extractor import FeatureExtractor
@@ -20,6 +22,99 @@ from .risk_engine import RiskEngine
 
 logger = logging.getLogger(__name__)
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
+
+# ==============================================================================
+# 1. DOMAIN TRUST GUARD (LỚP PHÒNG THỦ THEO CHIỀU SÂU CHO CÁC TÊN MIỀN UY TÍN)
+# ==============================================================================
+# Các mô hình học máy từ vựng (lexical ML) chỉ đếm ký tự (số lượng '/', chữ số, tham số).
+# Khi người dùng copy link thật từ trình duyệt (như link tin nhắn Facebook, video YouTube,
+# bài báo UCI, ChatGPT), URL thường có ID dài hoặc tham số truy vấn.
+# Lớp Trust Guard kiểm tra: nếu tên miền gốc thuộc danh sách uy tín và chạy trên HTTPS hợp lệ,
+# hệ thống sẽ bảo vệ để không bị cảnh báo nhầm (false positive), đồng thời giải thích rõ ràng.
+# Lưu ý: Các tên miền giả mạo (ví dụ: facebook.com.scam.xyz) có domain gốc là scam.xyz,
+# nên sẽ bị Trust Guard loại bỏ và quét nghiêm ngặt qua mô hình ML.
+TRUSTED_AUTHORITATIVE_DOMAINS: frozenset[str] = frozenset({
+    "chatgpt.com",
+    "openai.com",
+    "claude.ai",
+    "anthropic.com",
+    "deepseek.com",
+    "facebook.com",
+    "youtube.com",
+    "google.com",
+    "microsoft.com",
+    "apple.com",
+    "amazon.com",
+    "github.com",
+    "gitlab.com",
+    "linkedin.com",
+    "twitter.com",
+    "x.com",
+    "instagram.com",
+    "tiktok.com",
+    "netflix.com",
+    "spotify.com",
+    "reddit.com",
+    "wikipedia.org",
+    "wikimedia.org",
+    "stackoverflow.com",
+    "notion.so",
+    "dropbox.com",
+    "slack.com",
+    "zoom.us",
+    "cloudflare.com",
+    "uci.edu",
+    "mit.edu",
+    "harvard.edu",
+    "stanford.edu",
+    "berkeley.edu",
+    "python.org",
+    "pypi.org",
+    "kaggle.com",
+    "huggingface.co",
+    "sciencedirect.com",
+    "arxiv.org",
+    "vnexpress.net",
+    "tuoitre.vn",
+    "dantri.com.vn",
+    "zalo.me",
+})
+
+
+def _evaluate_domain_trust(url: str, features: dict[str, int | float]) -> tuple[bool, str | None]:
+    """Kiểm tra xem URL có thuộc tên miền uy tín đã được xác thực qua HTTPS hay không."""
+    # Bắt buộc phải dùng HTTPS chuẩn, không chứa IP, ký tự '@' hay cổng lạ
+    if features.get("uses_https") != 1:
+        return False, None
+    if features.get("contains_ip_address", 0) != 0:
+        return False, None
+    if features.get("contains_at_symbol", 0) != 0:
+        return False, None
+    if features.get("contains_suspicious_port", 0) != 0:
+        return False, None
+
+    try:
+        parsed = urlsplit(url if "://" in url else f"https://{url}")
+        hostname = (parsed.hostname or "").lower().rstrip(".")
+    except Exception:
+        return False, None
+
+    if not hostname:
+        return False, None
+
+    # Khớp chính xác tên miền hoặc subdomain hợp lệ (ví dụ: messages.facebook.com)
+    for domain in TRUSTED_AUTHORITATIVE_DOMAINS:
+        if hostname == domain or hostname.endswith("." + domain):
+            return True, domain
+
+    # Tự động nhận diện các tổ chức giáo dục (.edu) và chính phủ (.gov)
+    if hostname.endswith(".edu") or hostname.endswith(".gov"):
+        parts = hostname.split(".")
+        if len(parts) >= 2 and all(parts):
+            return True, ".".join(parts[-2:])
+
+    return False, None
+
 
 
 class ModelUnavailableError(RuntimeError):
@@ -116,11 +211,15 @@ class PhishingDetector:
         return reasons
 
     def analyze(self, url: str) -> PhishingAnalysis:
+        # BƯỚC 1: Tải mô hình và bộ tiền xử lý từ disk (kiểm tra hash SHA-256 chống can thiệp)
         model, preprocessor = self._load_artifacts()
+
+        # BƯỚC 2: Trích xuất 18 đặc trưng từ vựng offline (không gửi request mạng đến trang đích)
         features = self._feature_extractor.extract_url_features(url)
         feature_frame = pd.DataFrame([features], columns=FEATURE_NAMES)
         transformed = preprocessor.transform(feature_frame)
 
+        # BƯỚC 3: Dự đoán xác suất lừa đảo qua mô hình học máy (LightGBM/Random Forest)
         probabilities = np.asarray(model.predict_proba(transformed), dtype=float)
         classes = np.asarray(getattr(model, "classes_", []))
         phishing_columns = np.flatnonzero(classes == 1)
@@ -131,8 +230,16 @@ class PhishingDetector:
         if not 0.0 <= probability <= 1.0:
             raise ModelUnavailableError("Phishing model unavailable. Train model first.")
 
+        # BƯỚC 4: Áp dụng Domain Trust Guard (bảo vệ tên miền uy tín chính chủ trên HTTPS)
+        is_trusted, trusted_domain = _evaluate_domain_trust(url, features)
+        if is_trusted and trusted_domain:
+            probability = min(probability * 0.1, 0.15)
+
+        # BƯỚC 5: Tính toán điểm rủi ro (Risk Score: 0-100) và cấp độ rủi ro (LOW, MEDIUM, HIGH, CRITICAL)
         risk = self._risk_engine.calculate(probability)
         prediction = "PHISHING" if probability >= 0.5 else "LEGITIMATE"
+
+        # BƯỚC 6: Tính toán giải thích AI (XAI) bằng giá trị SHAP (TreeExplainer)
         explanation = self._explainability.explain(
             model=model,
             transformed=transformed,
@@ -142,6 +249,12 @@ class PhishingDetector:
             positive_class_index=phishing_column,
             predicted_probability=probability,
         )
+
+        # BƯỚC 7: Thu thập các lý do quan trọng nhất và ghi nhận bảo vệ từ Domain Trust Guard
+        reasons = self._important_feature_reasons(model, features)
+        if is_trusted and trusted_domain:
+            reasons.insert(0, f"Domain Trust Guard: {trusted_domain} is a verified authoritative domain (HTTPS).")
+
         return PhishingAnalysis(
             url=url,
             prediction=prediction,
@@ -149,7 +262,7 @@ class PhishingDetector:
             risk_score=risk.score,
             risk_level=risk.level,
             features=features,
-            reasons=self._important_feature_reasons(model, features),
+            reasons=reasons,
             explanation=explanation,
         )
 

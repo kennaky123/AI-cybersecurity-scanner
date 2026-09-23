@@ -130,31 +130,40 @@ def _count_subdomains(hostname: str) -> int:
 
 
 def extract_url_features(url: str) -> dict[str, int | float]:
-    """Extract deterministic lexical features from one valid HTTP(S) URL."""
+    """Trích xuất 18 đặc trưng từ vựng tĩnh (offline lexical features) từ URL HTTP(S).
+    Hoàn toàn không gửi request mạng, DNS hay tra cứu bên ngoài.
+    """
     value, parsed = _parse_url(url)
     hostname = parsed.hostname or ""
     lowered = value.lower()
     port = parsed.port
 
     features: dict[str, int | float] = {
-        "url_length": len(value),
-        "domain_length": len(hostname),
-        "path_length": len(parsed.path),
-        "query_length": len(parsed.query),
-        "num_dots": value.count("."),
-        "num_hyphens": value.count("-"),
-        "num_underscores": value.count("_"),
-        "num_slashes": value.count("/"),
-        "num_digits": sum(character.isdigit() for character in value),
-        "num_special_characters": sum(not character.isalnum() for character in value),
-        "num_subdomains": _count_subdomains(hostname),
-        "uses_https": int(parsed.scheme.lower() == "https" and "://" in value),
-        "contains_ip_address": int(_is_ip_address(hostname)),
-        "contains_at_symbol": int("@" in value),
-        "contains_suspicious_port": int(port is not None and port not in {80, 443}),
-        "num_parameters": len(parse_qsl(parsed.query, keep_blank_values=True)),
-        "url_entropy": round(calculate_entropy(value), 6),
-        "suspicious_keyword_count": sum(lowered.count(keyword) for keyword in SUSPICIOUS_KEYWORDS),
+        # Nhóm độ dài chuỗi
+        "url_length": len(value),                         # Độ dài toàn bộ URL
+        "domain_length": len(hostname),                   # Độ dài phần hostname/domain
+        "path_length": len(parsed.path),                  # Độ dài đường dẫn path
+        "query_length": len(parsed.query),                # Độ dài chuỗi truy vấn query (?a=1&b=2)
+
+        # Nhóm ký tự đặc biệt & phân đoạn
+        "num_dots": value.count("."),                     # Số dấu chấm (nhiều chấm thường là subdomain lừa đảo)
+        "num_hyphens": value.count("-"),                  # Số dấu gạch ngang (hay dùng để giả mạo tên thương hiệu)
+        "num_underscores": value.count("_"),              # Số dấu gạch dưới
+        "num_slashes": value.count("/"),                  # Số dấu gạch chéo
+        "num_digits": sum(character.isdigit() for character in value),  # Số chữ số trong URL
+        "num_special_characters": sum(not character.isalnum() for character in value),  # Tổng ký tự phi chữ/số
+        "num_subdomains": _count_subdomains(hostname),    # Số cấp subdomain
+
+        # Nhóm bảo mật giao thức & cấu trúc mạng
+        "uses_https": int(parsed.scheme.lower() == "https" and "://" in value),  # Sử dụng giao thức bảo mật HTTPS
+        "contains_ip_address": int(_is_ip_address(hostname)),                    # URL dùng IP trực tiếp thay vì domain
+        "contains_at_symbol": int("@" in value),                                 # Ký tự '@' dùng trong kỹ thuật đánh lừa browser
+        "contains_suspicious_port": int(port is not None and port not in {80, 443}),  # Cổng phi chuẩn khác 80/443
+
+        # Nhóm tham số & ngữ nghĩa
+        "num_parameters": len(parse_qsl(parsed.query, keep_blank_values=True)),  # Số lượng tham số trong query
+        "url_entropy": round(calculate_entropy(value), 6),                       # Độ hỗn loạn thông tin Shannon Entropy
+        "suspicious_keyword_count": sum(lowered.count(keyword) for keyword in SUSPICIOUS_KEYWORDS),  # Từ khóa nhạy cảm (login, verify, bank...)
     }
     return features
 

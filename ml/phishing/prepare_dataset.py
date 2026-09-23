@@ -14,7 +14,6 @@ DEFAULT_OUTPUT = Path("data/processed/phishing.csv")
 
 
 def prepare_dataset(
-    input_path: Path,
     input_path: Path | list[Path],
     output_path: Path = DEFAULT_OUTPUT,
     *,
@@ -22,20 +21,12 @@ def prepare_dataset(
     label_column: str | None = None,
     label_scheme: str = "auto",
 ) -> tuple[pd.DataFrame, DatasetSummary]:
-    raw = load_csv(input_path)
-    cleaned, summary = validate_and_clean(
-        raw,
-        url_column=url_column,
-        label_column=label_column,
-        label_scheme=label_scheme,  # type: ignore[arg-type]
-    )
     inputs = [input_path] if isinstance(input_path, Path) else input_path
     all_cleaned: list[pd.DataFrame] = []
     total_samples = 0
     duplicate_removed = 0
     invalid_removed = 0
 
-    feature_rows = [extract_url_features(url) for url in cleaned["url"]]
     for path in inputs:
         raw = load_csv(path)
         cleaned, summary = validate_and_clean(
@@ -56,12 +47,10 @@ def prepare_dataset(
 
     feature_rows = [extract_url_features(url) for url in combined["url"]]
     processed = pd.DataFrame(feature_rows, columns=FEATURE_NAMES)
-    processed["label"] = cleaned["label"].to_numpy()
     processed["label"] = combined["label"].to_numpy()
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     processed.to_csv(output_path, index=False)
-    return processed, summary
 
     final_summary = DatasetSummary(
         total_samples=total_samples,
@@ -77,7 +66,6 @@ def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Validate phishing URL data and extract offline lexical features. No model is trained."
     )
-    parser.add_argument("--input", required=True, type=Path, help="Path to the source CSV.")
     parser.add_argument("--input", nargs="+", required=True, type=Path, help="One or more paths to source CSVs.")
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT, help=f"Output CSV (default: {DEFAULT_OUTPUT}).")
     parser.add_argument("--url-column", help="URL column name; detected automatically when omitted.")

@@ -63,3 +63,20 @@ def test_successful_analysis_is_saved_to_history(tmp_path: Path, monkeypatch) ->
     assert history["items"][0]["prediction"] == "PHISHING"
     assert history["items"][0]["probability"] == 0.94
     assert history["items"][0]["sha256"] is None
+
+
+def test_domain_trust_guard_evaluates_trusted_and_spoofed_domains() -> None:
+    detector = PhishingDetector()
+    trusted = detector.analyze("https://www.facebook.com/messages/t/3426561450703929")
+    assert trusted.prediction == "LEGITIMATE"
+    assert trusted.risk_level == "LOW"
+    assert any("Domain Trust Guard" in reason for reason in trusted.reasons)
+
+    uci = detector.analyze("https://archive.ics.uci.edu/dataset/967/phiusiil+phishing+url+dataset")
+    assert uci.prediction == "LEGITIMATE"
+    assert uci.risk_level == "LOW"
+    assert any("Domain Trust Guard" in reason for reason in uci.reasons)
+
+    spoofed = detector.analyze("https://facebook.com.scam-verification.xyz/login")
+    assert not any("Domain Trust Guard" in reason for reason in spoofed.reasons)
+

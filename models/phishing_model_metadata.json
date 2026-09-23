@@ -1,16 +1,16 @@
 {
-  "model": "Random Forest",
-  "model_key": "random_forest",
-  "dataset": "PhiUSIIL+Kaggle+PhishTank",
+  "model": "LightGBM",
+  "model_key": "lightgbm",
+  "dataset": "phishing",
   "dataset_path": "data\\processed\\phishing.csv",
-  "dataset_sha256": "44cd119b6fb1533d65f9a2dd1ed7bfafae025e0f85afbad8270737bb263e668a",
+  "dataset_sha256": "a400af89380a6f2ccd59241835b363333100ef25b7ff3ffab8416e5e0fd53fa1",
   "random_seed": 42,
   "selection_strategy": "validation lexicographic: f1, roc_auc, recall, precision, accuracy",
-  "total_samples": 684349,
-  "training_samples": 581696,
-  "selection_train_samples": 479044,
-  "validation_samples": 102652,
-  "test_samples": 102653,
+  "total_samples": 58304,
+  "training_samples": 49558,
+  "selection_train_samples": 40812,
+  "validation_samples": 8746,
+  "test_samples": 8746,
   "missing_feature_values_imputed": 0,
   "features": [
     "url_length",
@@ -32,70 +32,70 @@
     "url_entropy",
     "suspicious_keyword_count"
   ],
-  "accuracy": 0.9786172834695528,
-  "precision": 0.9603574953394013,
-  "recall": 0.9790659325302552,
-  "f1": 0.9696214794823887,
-  "roc_auc": 0.9929164448764181,
+  "accuracy": 0.9493482734964556,
+  "precision": 0.9730994152046784,
+  "recall": 0.9269162210338681,
+  "f1": 0.9494465365742326,
+  "roc_auc": 0.9864834224180299,
   "confusion_matrix": [
     [
-      65428,
-      1446
+      4143,
+      115
     ],
     [
-      749,
-      35030
+      328,
+      4160
     ]
   ],
   "validation_metrics": {
     "Random Forest": {
-      "accuracy": 0.9771753107586798,
-      "precision": 0.9589819619471214,
-      "recall": 0.9762703337246352,
-      "f1": 0.9675489259151535,
-      "roc_auc": 0.992394468438775,
+      "accuracy": 0.9490052595472216,
+      "precision": 0.9658907582392257,
+      "recall": 0.9336155045667186,
+      "f1": 0.9494789306751246,
+      "roc_auc": 0.9829737013291645,
       "confusion_matrix": [
         [
-          65380,
-          1494
+          4109,
+          148
         ],
         [
-          849,
-          34929
+          298,
+          4191
         ]
       ]
     },
     "XGBoost": {
-      "accuracy": 0.9750418891010404,
-      "precision": 0.9514515602913993,
-      "recall": 0.9783106937223992,
-      "f1": 0.9646942094093652,
-      "roc_auc": 0.9931433798909874,
+      "accuracy": 0.9534644408872628,
+      "precision": 0.9768691588785047,
+      "recall": 0.9313878369347294,
+      "f1": 0.9535864978902954,
+      "roc_auc": 0.9888672087690877,
       "confusion_matrix": [
         [
-          65088,
-          1786
+          4158,
+          99
         ],
         [
-          776,
-          35002
+          308,
+          4181
         ]
       ]
     },
     "LightGBM": {
-      "accuracy": 0.9750516307524452,
-      "precision": 0.9514283384523389,
-      "recall": 0.9783665939963105,
-      "f1": 0.9647094489382518,
-      "roc_auc": 0.9930618250827049,
+      "accuracy": 0.9543791447518866,
+      "precision": 0.977803738317757,
+      "recall": 0.9322789039875251,
+      "f1": 0.9544988026000685,
+      "roc_auc": 0.9888870939863805,
       "confusion_matrix": [
         [
-          65087,
-          1787
+          4162,
+          95
         ],
         [
-          774,
-          35004
+          304,
+          4185
         ]
       ]
     }
@@ -104,15 +104,15 @@
     "model": "phishing_model.joblib",
     "preprocessor": "phishing_preprocessor.joblib"
   },
-  "output_directory": "D:\\VScode\\ai-cybersecurity-scanner\\models",
+  "output_directory": "C:\\Users\\chipt\\.vscode\\AI-cybersecurity-scanner\\models",
   "library_versions": {
     "scikit_learn": "1.9.1",
     "pandas": "3.0.6",
     "numpy": "2.5.3"
   },
-  "trained_at_utc": "2026-09-23T07:30:34.174706+00:00",
+  "trained_at_utc": "2026-09-23T14:20:07.205861+00:00",
   "artifact_sha256": {
-    "model": "15674346b43c5216d3e925e80b36109dce7b8fdea9d88c6e12974063880b4a46",
-    "preprocessor": "a079349bf3b81d4f7fcc2d7948ba22c6d15bfc90318ec8b5b49e198ebfb3f990"
+    "model": "be4a855757c985356b99411ff4dba73bb331881dcc8584d83d2c242af28bf5f1",
+    "preprocessor": "5cd1a6f0d3c71d5b39c15eac757e3085aca9b7e9855b7e6cf497730f4e46ba9b"
   }
 }

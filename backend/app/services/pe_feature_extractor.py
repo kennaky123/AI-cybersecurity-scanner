@@ -19,7 +19,7 @@ import numpy as np
 import pefile
 from sklearn.feature_extraction import FeatureHasher
 
-from ml.malware.features import EMBER_V2_FEATURE_COUNT, feature_names
+from ml.malware.features import EMBER_V2_FEATURE_COUNT, EMBER_V3_FEATURE_COUNT, feature_names
 
 
 class PEFeatureExtractionError(ValueError):
@@ -58,7 +58,12 @@ class PEFeatureResult:
     extraction_notes: list[str]
 
     def model_vector(self, expected_features: Sequence[str] | None = None) -> np.ndarray:
-        expected = list(expected_features or feature_names(2))
+        if expected_features is not None:
+            expected = list(expected_features)
+        elif len(self.model_features) == EMBER_V3_FEATURE_COUNT:
+            expected = list(feature_names(3))
+        else:
+            expected = list(feature_names(2))
         validate_feature_schema(expected, self.model_features, raise_on_mismatch=True)
         return np.asarray([self.model_features[name] for name in expected], dtype=np.float32)
 
@@ -366,7 +371,7 @@ def expected_features_from_metadata(metadata_path: Path) -> list[str]:
 class PEFeatureExtractor:
     """Extract descriptive and EMBER v2-compatible features using read-only parsing."""
 
-    def extract(self, file_path: Path) -> PEFeatureResult:
+    def extract(self, file_path: Path, feature_version: int = 2) -> PEFeatureResult:
         path = file_path.resolve()
         if not path.is_file():
             raise FileNotFoundError(f"PE file not found: {path}")
@@ -395,42 +400,68 @@ class PEFeatureExtractor:
             entropies = [section.entropy for section in sections]
             string_vector, string_statistics = _string_features(file_bytes)
 
-            general_vector = np.asarray(
-                [
-                    len(file_bytes),
-                    int(pe.OPTIONAL_HEADER.SizeOfImage),
-                    _directory_present(pe, "IMAGE_DIRECTORY_ENTRY_DEBUG"),
-                    len(exports),
-                    imported_function_count,
-                    _directory_present(pe, "IMAGE_DIRECTORY_ENTRY_BASERELOC"),
-                    _directory_present(pe, "IMAGE_DIRECTORY_ENTRY_RESOURCE"),
-                    _directory_present(pe, "IMAGE_DIRECTORY_ENTRY_SECURITY"),
-                    _directory_present(pe, "IMAGE_DIRECTORY_ENTRY_TLS"),
-                    int(pe.FILE_HEADER.NumberOfSymbols),
-                ],
-                dtype=np.float32,
-            )
-            model_vector = np.hstack(
-                [
-                    _byte_histogram(file_bytes),
-                    _byte_entropy_histogram(file_bytes),
-                    string_vector,
-                    general_vector,
-                    _header_vector(pe),
-                    _section_vector(pe, sections),
-                    _imports_vector(imports),
-                    _hash_strings(exports, 128).astype(np.float32),
-                    _data_directory_vector(pe),
+            if feature_version == 3:
+                try:
+                    import thrember
+                    v3_extractor = thrember.PEFeatureExtractor()
+                    model_vector = v3_extractor.feature_vector(file_bytes)
+                except Exception as error:
+                    raise PEFeatureExtractionError(f"EMBER2024 feature extraction failed: {error}") from error
+                if len(model_vector) != EMBER_V3_FEATURE_COUNT or not np.isfinite(model_vector).all():
+                    raise PEFeatureExtractionError(
+                        f"Extractor produced {len(model_vector)} features; expected {EMBER_V3_FEATURE_COUNT}."
+                    )
+                names = feature_names(3)
+                model_features = {name: float(value) for name, value in zip(names, model_vector, strict=True)}
+                validate_feature_schema(names, model_features, raise_on_mismatch=True)
+                schema_name = "EMBER-2024-2568"
+                notes = [
+                    "Extracted 2,568 EMBER2024 features including RichHeader, Authenticode signatures, and PE format warnings.",
+                    "EMBER feature version 3 (thrember) using pefile parser.",
                 ]
-            ).astype(np.float32)
-            if len(model_vector) != EMBER_V2_FEATURE_COUNT or not np.isfinite(model_vector).all():
-                raise PEFeatureExtractionError(
-                    f"Extractor produced {len(model_vector)} features; expected {EMBER_V2_FEATURE_COUNT}."
+            else:
+                general_vector = np.asarray(
+                    [
+                        len(file_bytes),
+                        int(pe.OPTIONAL_HEADER.SizeOfImage),
+                        _directory_present(pe, "IMAGE_DIRECTORY_ENTRY_DEBUG"),
+                        len(exports),
+                        imported_function_count,
+                        _directory_present(pe, "IMAGE_DIRECTORY_ENTRY_BASERELOC"),
+                        _directory_present(pe, "IMAGE_DIRECTORY_ENTRY_RESOURCE"),
+                        _directory_present(pe, "IMAGE_DIRECTORY_ENTRY_SECURITY"),
+                        _directory_present(pe, "IMAGE_DIRECTORY_ENTRY_TLS"),
+                        int(pe.FILE_HEADER.NumberOfSymbols),
+                    ],
+                    dtype=np.float32,
                 )
+                model_vector = np.hstack(
+                    [
+                        _byte_histogram(file_bytes),
+                        _byte_entropy_histogram(file_bytes),
+                        string_vector,
+                        general_vector,
+                        _header_vector(pe),
+                        _section_vector(pe, sections),
+                        _imports_vector(imports),
+                        _hash_strings(exports, 128).astype(np.float32),
+                        _data_directory_vector(pe),
+                    ]
+                ).astype(np.float32)
+                if len(model_vector) != EMBER_V2_FEATURE_COUNT or not np.isfinite(model_vector).all():
+                    raise PEFeatureExtractionError(
+                        f"Extractor produced {len(model_vector)} features; expected {EMBER_V2_FEATURE_COUNT}."
+                    )
 
-            names = feature_names(2)
-            model_features = {name: float(value) for name, value in zip(names, model_vector, strict=True)}
-            validate_feature_schema(names, model_features, raise_on_mismatch=True)
+                names = feature_names(2)
+                model_features = {name: float(value) for name, value in zip(names, model_vector, strict=True)}
+                validate_feature_schema(names, model_features, raise_on_mismatch=True)
+                schema_name = "EMBER-v2-2381"
+                notes = [
+                    "Optional PE structures that are genuinely absent map to zero-valued EMBER blocks by schema definition.",
+                    "No missing expected feature is silently zero-padded; schema mismatch raises FeatureSchemaMismatchError.",
+                    "EMBER reference data used LIEF; this pefile backend reproduces its 2,381-position layout, but parser-specific categorical differences may affect hashed bins.",
+                ]
 
             timestamp = int(pe.FILE_HEADER.TimeDateStamp)
             formatted_timestamp = _timestamp_utc(timestamp)
@@ -460,14 +491,9 @@ class PEFeatureExtractor:
                 "minimum_section_entropy": float(min(entropies)),
                 "string_statistics": string_statistics,
             }
-            notes = [
-                "Optional PE structures that are genuinely absent map to zero-valued EMBER blocks by schema definition.",
-                "No missing expected feature is silently zero-padded; schema mismatch raises FeatureSchemaMismatchError.",
-                "EMBER reference data used LIEF; this pefile backend reproduces its 2,381-position layout, but parser-specific categorical differences may affect hashed bins.",
-            ]
             if formatted_timestamp is None:
                 notes.append("The raw PE timestamp is outside the platform datetime range; timestamp_utc is null.")
-            return PEFeatureResult(static_features, sections, model_features, "EMBER-v2-2381", notes)
+            return PEFeatureResult(static_features, sections, model_features, schema_name, notes)
         except (AttributeError, KeyError, OverflowError, ValueError) as error:
             if isinstance(error, (PEFeatureExtractionError, FeatureSchemaMismatchError)):
                 raise
@@ -476,7 +502,8 @@ class PEFeatureExtractor:
             pe.close()
 
     def extract_and_validate(self, file_path: Path, metadata_path: Path) -> PEFeatureResult:
-        result = self.extract(file_path)
         expected = expected_features_from_metadata(metadata_path)
+        feature_version = 3 if len(expected) == EMBER_V3_FEATURE_COUNT else 2
+        result = self.extract(file_path, feature_version=feature_version)
         validate_feature_schema(expected, result.model_features, raise_on_mismatch=True)
         return result

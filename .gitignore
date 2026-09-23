@@ -48,3 +48,7 @@ Thumbs.db
 
 # Local safe scanner fixtures (never commit executable files)
 safe_test_files/*.exe
+
+# Temporary scratch and benchmark downloads
+scratch/
+
