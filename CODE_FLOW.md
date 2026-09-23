@@ -307,3 +307,4 @@ flowchart LR
 | **`src/pages/Dashboard.tsx`** | TypeScript | Giao diện bảng điều khiển tổng quan hệ thống. |
 | **`src/services/api.ts`** | TypeScript | Module kết nối HTTP Axios gọi backend API. |
 | **`tests/`** | Python | Bộ kiểm thử tự động toàn diện gồm 66 bài test (`pytest`). |
+
