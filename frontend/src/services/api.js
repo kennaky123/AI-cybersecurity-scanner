@@ -23,6 +23,60 @@ export async function analyzePhishingUrl(url) {
   return parseResponse(response)
 }
 
+export async function analyzePhishingHtml(url) {
+  const response = await fetch(`${API_BASE_URL}/phishing/html-analysis`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url }),
+  })
+  return parseResponse(response)
+}
+
+export async function analyzePhishingJavascript(url) {
+  const response = await fetch(`${API_BASE_URL}/phishing/javascript-analysis`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url }),
+  })
+  return parseResponse(response)
+}
+
+export async function analyzePhishingSandbox(url) {
+  const response = await fetch(`${API_BASE_URL}/phishing/sandbox-analysis`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url }),
+  })
+  return parseResponse(response)
+}
+
+export async function analyzePhishingVisual(url) {
+  const response = await fetch(`${API_BASE_URL}/phishing/visual-analysis`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url }),
+  })
+  return parseResponse(response)
+}
+
+export async function analyzePhishingDownloads(url) {
+  const response = await fetch(`${API_BASE_URL}/phishing/download-analysis`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url }),
+  })
+  return parseResponse(response)
+}
+
+export async function lookupThreatIntelligence(indicatorType, value) {
+  const response = await fetch(`${API_BASE_URL.replace('/api', '')}/api/threat-intelligence/lookup`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ indicator_type: indicatorType, value }),
+  })
+  return parseResponse(response)
+}
+
 export async function analyzeMalwareFile(file) {
   const formData = new FormData()
   formData.append('file', file)
@@ -46,3 +100,14 @@ export async function getScanHistory(filters = {}, signal) {
   const response = await fetch(`${API_BASE_URL}/history?${params.toString()}`, { signal })
   return parseResponse(response)
 }
+
+export async function getModelMetrics() {
+  const response = await fetch(`${API_BASE_URL}/metrics`)
+  return parseResponse(response)
+}
+
+export async function getModelMetricsByType(type) {
+  const response = await fetch(`${API_BASE_URL}/metrics/${type}`)
+  return parseResponse(response)
+}
+
