@@ -1,11 +1,18 @@
 from contextlib import asynccontextmanager
 import logging
+from pathlib import Path
 
+from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from .api import dashboard, history, malware, phishing
+# Load environment variables from .env file (checked at project root and backend dir)
+_ROOT_DIR = Path(__file__).resolve().parents[2]
+load_dotenv(_ROOT_DIR / ".env")
+load_dotenv()
+
+from .api import dashboard, history, malware, metrics, phishing, threat_intelligence
 from .database.database import initialize_database
 
 logger = logging.getLogger(__name__)
@@ -34,8 +41,10 @@ app.add_middleware(
 
 app.include_router(dashboard.router)
 app.include_router(phishing.router)
+app.include_router(threat_intelligence.router)
 app.include_router(malware.router)
 app.include_router(history.router)
+app.include_router(metrics.router)
 
 
 @app.exception_handler(Exception)

@@ -65,6 +65,27 @@ def test_successful_analysis_is_saved_to_history(tmp_path: Path, monkeypatch) ->
     assert history["items"][0]["sha256"] is None
 
 
+def test_phase_one_url_analysis_api_does_not_require_ml_model() -> None:
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/phishing/url-analysis",
+            json={"url": "http://192.168.1.5:8080/login?verify=1"},
+        )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["url_analysis"]["features"]["ip_address"] == "192.168.1.5"
+    assert "IP_BASED_URL" in body["url_analysis"]["indicators"]
+    assert body["domain_analysis"]["features"]["domain_age_days"] is None
+
+
+def test_phase_one_url_analysis_rejects_malformed_url() -> None:
+    with TestClient(app) as client:
+        response = client.post("/api/phishing/url-analysis", json={"url": "not a url"})
+
+    assert response.status_code == 422
+
+
 def test_domain_trust_guard_evaluates_trusted_and_spoofed_domains() -> None:
     detector = PhishingDetector()
     trusted = detector.analyze("https://www.facebook.com/messages/t/3426561450703929")

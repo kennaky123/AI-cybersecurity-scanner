@@ -21,12 +21,12 @@ const RISK_COLORS = ['#34d399', '#fbbf24', '#fb923c', '#fb7185']
 const TYPE_COLORS = ['#22d3ee', '#a78bfa']
 
 const summaryCards = [
-  ['total_scans', 'Total scans'],
-  ['url_scans', 'URL scans'],
-  ['file_scans', 'File scans'],
-  ['safe_results', 'Safe results'],
-  ['high_risk_results', 'High risk'],
-  ['critical_results', 'Critical'],
+  ['total_scans', 'Tổng lượt quét'],
+  ['url_scans', 'Quét URL'],
+  ['file_scans', 'Quét tệp'],
+  ['safe_results', 'Kết quả an toàn'],
+  ['high_risk_results', 'Rủi ro cao'],
+  ['critical_results', 'Nghiêm trọng'],
 ]
 
 export default function Dashboard() {
@@ -42,7 +42,7 @@ export default function Dashboard() {
       })
       .catch((requestError) => {
         setApiStatus('offline')
-        setError(requestError.message || 'Unable to load dashboard.')
+        setError(requestError.message || 'Không thể tải trang tổng quan.')
       })
   }, [])
 
@@ -50,15 +50,15 @@ export default function Dashboard() {
     <section className="dashboard-page">
       <div className="page-heading-row">
         <div>
-          <p className="eyebrow">Security workspace</p>
-          <h1>Dashboard</h1>
-          <p className="lead">Operational view of phishing and static PE scans.</p>
+          <p className="eyebrow">Không gian bảo mật</p>
+          <h1>Tổng quan</h1>
+          <p className="lead">Theo dõi các lượt quét phishing và tệp PE tĩnh.</p>
         </div>
-        <div className="api-indicator"><span className={`status-dot ${apiStatus}`} />API {apiStatus}</div>
+        <div className="api-indicator"><span className={`status-dot ${apiStatus}`} />API: {apiStatus === 'ok' ? 'Hoạt động' : apiStatus === 'offline' ? 'Ngoại tuyến' : 'Đang kiểm tra'}</div>
       </div>
 
       {error && <div className="scanner-error" role="alert">{error}</div>}
-      {!data && !error && <div className="loading-panel">Loading dashboard…</div>}
+      {!data && !error && <div className="loading-panel">Đang tải dữ liệu tổng quan…</div>}
 
       {data && (
         <>
@@ -73,7 +73,7 @@ export default function Dashboard() {
 
           <div className="chart-grid">
             <article className="chart-card chart-wide">
-              <h2>Scan count over time</h2>
+              <h2>Số lượt quét theo thời gian</h2>
               <ResponsiveContainer width="100%" height={270}>
                 <AreaChart data={data.scan_count_over_time}>
                   <defs>
@@ -92,7 +92,7 @@ export default function Dashboard() {
             </article>
 
             <article className="chart-card">
-              <h2>Risk distribution</h2>
+              <h2>Phân bố mức rủi ro</h2>
               <ResponsiveContainer width="100%" height={270}>
                 <PieChart>
                   <Pie data={data.risk_distribution} dataKey="value" nameKey="name" innerRadius={55} outerRadius={88} paddingAngle={3}>
@@ -105,7 +105,7 @@ export default function Dashboard() {
             </article>
 
             <article className="chart-card">
-              <h2>Phishing vs Malware</h2>
+              <h2>Phishing và mã độc</h2>
               <ResponsiveContainer width="100%" height={270}>
                 <PieChart>
                   <Pie data={data.scan_type_distribution} dataKey="value" nameKey="name" outerRadius={88} label>
@@ -118,7 +118,7 @@ export default function Dashboard() {
             </article>
 
             <article className="chart-card chart-wide">
-              <h2>Prediction distribution</h2>
+              <h2>Phân bố dự đoán</h2>
               <ResponsiveContainer width="100%" height={270}>
                 <BarChart data={data.prediction_distribution}>
                   <CartesianGrid stroke="#17344e" strokeDasharray="3 3" />
@@ -132,8 +132,8 @@ export default function Dashboard() {
           </div>
 
           <article className="history-card">
-            <div className="card-heading"><h2>Recent scans</h2><span>{data.recent_scans.length} latest</span></div>
-            <ScanTable scans={data.recent_scans} emptyMessage="Run a phishing or malware scan to populate the dashboard." />
+            <div className="card-heading"><h2>Lượt quét gần đây</h2><span>{data.recent_scans.length} mới nhất</span></div>
+            <ScanTable scans={data.recent_scans} emptyMessage="Hãy thực hiện quét phishing hoặc mã độc để hiển thị dữ liệu." />
           </article>
         </>
       )}

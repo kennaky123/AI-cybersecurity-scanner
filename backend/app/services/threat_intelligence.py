@@ -701,3 +701,182 @@ def get_threat_actor_dossier(
             "3. Sử dụng môi trường máy ảo cách ly (Sandbox) an toàn để kiểm tra hành vi tệp trước khi mở.",
         ],
     }
+
+
+def get_malware_bazaar_intel(
+    sha256: str,
+    filename: str = "",
+    api_key: str | None = None,
+) -> dict[str, Any]:
+    """Tra cứu trực tiếp mã băm từ MalwareBazaar (abuse.ch) hoặc thư viện IOC đã xác thực."""
+    clean_hash = sha256.strip().lower()
+
+    # 1. Kiểm tra thư viện mẫu độc hại nội bộ đã thẩm định (Offline IOC Catalog)
+    if clean_hash in KNOWN_MALWARE_HASHES:
+        info = KNOWN_MALWARE_HASHES[clean_hash]
+        return {
+            "matched": True,
+            "source": f"{info.get('source', 'MalwareBazaar abuse.ch')} (Thư viện mẫu đã xác thực)",
+            "bazaar_url": f"https://bazaar.abuse.ch/sample/{clean_hash}/",
+            "sample": {
+                "signature": info.get("family"),
+                "reporter": info.get("actor"),
+                "first_seen": info.get("first_seen", "N/A"),
+                "delivery_method": info.get("delivery", "N/A"),
+                "tags": info.get("tags", []),
+                "file_name": filename or f"{info.get('family', 'malware').lower()}.exe",
+                "sha256_hash": clean_hash,
+                "md5_hash": "",
+                "sha1_hash": "",
+                "imphash": "",
+                "tlsh": "",
+                "intelligence": {
+                    "clamav": [f"Win.Trojan.{info.get('family', 'Malware')}-1"],
+                    "yara_rules": [f"{info.get('family', 'malware').lower()}_detection_rule"],
+                },
+                "target_sectors": info.get("target_sectors", []),
+                "threat_level": info.get("threat_level", "HIGH"),
+            },
+        }
+
+    # 2. Truy vấn trực tiếp API MalwareBazaar (abuse.ch)
+    endpoint = "https://mb-api.abuse.ch/api/v1/"
+    headers = {"User-Agent": "AI-Security-Scanner/phase4"}
+    effective_key = api_key or os.getenv("MALWAREBAZAAR_API_KEY")
+    if effective_key:
+        headers["Auth-Key"] = effective_key
+
+    try:
+        with httpx.Client(timeout=8.0) as client:
+            resp = client.post(endpoint, data={"query": "get_info", "hash": clean_hash}, headers=headers)
+            if resp.status_code == 200:
+                payload = resp.json()
+                if payload.get("query_status") == "ok":
+                    data_list = payload.get("data")
+                    item = data_list[0] if (isinstance(data_list, list) and data_list) else payload
+                    return {
+                        "matched": True,
+                        "source": "MalwareBazaar abuse.ch (Live API)",
+                        "bazaar_url": f"https://bazaar.abuse.ch/sample/{clean_hash}/",
+                        "sample": {
+                            "signature": item.get("signature") or "Mã độc đã ghi nhận",
+                            "reporter": item.get("reporter") or "abuse.ch Community",
+                            "first_seen": item.get("first_seen") or "N/A",
+                            "delivery_method": item.get("delivery_method") or "Web / Email Phishing",
+                            "tags": item.get("tags") or [],
+                            "file_name": item.get("file_name") or filename or "unknown.exe",
+                            "file_size": item.get("file_size"),
+                            "file_type": item.get("file_type"),
+                            "file_type_mime": item.get("file_type_mime"),
+                            "sha256_hash": item.get("sha256_hash") or clean_hash,
+                            "sha3_384_hash": item.get("sha3_384_hash") or "",
+                            "md5_hash": item.get("md5_hash") or "",
+                            "sha1_hash": item.get("sha1_hash") or "",
+                            "imphash": item.get("imphash") or "",
+                            "tlsh": item.get("tlsh") or "",
+                            "ssdeep": item.get("ssdeep") or "",
+                            "intelligence": item.get("intelligence") or {},
+                            "vendor_intel": item.get("vendor_intel") or {},
+                            "yara_rules": item.get("yara_rules") or [],
+                        },
+                    }
+    except Exception:
+        pass
+
+    # 3. Mặc định chưa ghi nhận
+    return {
+        "matched": False,
+        "source": "MalwareBazaar abuse.ch",
+        "bazaar_url": f"https://bazaar.abuse.ch/sample/{clean_hash}/",
+        "sample": {
+            "signature": None,
+            "reporter": "Chưa ghi nhận",
+            "first_seen": "N/A",
+            "delivery_method": "Chưa xác định",
+            "tags": [],
+            "file_name": filename or "unknown.exe",
+            "sha256_hash": clean_hash,
+            "md5_hash": "",
+            "sha1_hash": "",
+            "imphash": "",
+            "tlsh": "",
+            "ssdeep": "",
+            "intelligence": {},
+            "vendor_intel": {},
+            "yara_rules": [],
+        },
+    }
+
+
+def check_file_hash_threat(sha256: str) -> dict[str, Any] | None:
+    """Đối chiếu mã băm với KNOWN_MALWARE_HASHES, Hybrid Analysis, và MalwareBazaar.
+    Trả về thông tin mối đe dọa nếu là mã độc, ngược lại trả về None.
+    """
+    clean_hash = sha256.strip().lower()
+    if not clean_hash:
+        return None
+
+    # 1. Thư viện mã băm đã thẩm định nội bộ
+    if clean_hash in KNOWN_MALWARE_HASHES:
+        info = KNOWN_MALWARE_HASHES[clean_hash]
+        return {
+            "matched": True,
+            "source": f"Verified Threat Intel ({info.get('actor', 'Known')})",
+            "family": info.get("family", "Malware"),
+            "threat_score": 100,
+            "verdict": "malicious",
+        }
+
+    # 2. Truy vấn kho dữ liệu Hybrid Analysis / Falcon Sandbox bằng mã băm
+    ha_key = (os.getenv("HYBRID_ANALYSIS_API_KEY") or os.getenv("FALCON_SANDBOX_API_KEY") or "").strip()
+    if ha_key:
+        try:
+            import requests as req_lib
+            url = "https://www.hybrid-analysis.com/api/v2/search/hash"
+            headers = {"api-key": ha_key, "User-Agent": "Falcon Sandbox", "accept": "application/json"}
+            resp = req_lib.get(url, params={"hash": clean_hash}, headers=headers, timeout=5.0)
+            if resp.status_code == 200:
+                d = resp.json()
+                reports = d.get("reports", []) if isinstance(d, dict) else (d if isinstance(d, list) else [])
+                if reports and isinstance(reports[0], dict):
+                    rep = reports[0]
+                    verdict = str(rep.get("verdict", "")).lower()
+                    if verdict in ("malicious", "suspicious"):
+                        return {
+                            "matched": True,
+                            "source": f"Falcon Sandbox ({rep.get('environment_description', 'Windows')})",
+                            "family": rep.get("vx_family") or "Malware",
+                            "threat_score": 100 if verdict == "malicious" else 75,
+                            "verdict": verdict,
+                            "job_id": rep.get("id"),
+                        }
+        except Exception as exc:
+            logger.debug("Hybrid Analysis hash check skipped: %s", exc)
+
+    # 3. Truy vấn MalwareBazaar (abuse.ch)
+    mb_key = (os.getenv("MALWAREBAZAAR_API_KEY") or "").strip()
+    try:
+        mb_url = "https://mb-api.abuse.ch/api/v1/"
+        headers = {"User-Agent": "AI-Security-Scanner/phase4"}
+        if mb_key:
+            headers["Auth-Key"] = mb_key
+        with httpx.Client(timeout=4.0) as client:
+            resp = client.post(mb_url, data={"query": "get_info", "hash": clean_hash}, headers=headers)
+            if resp.status_code == 200:
+                payload = resp.json()
+                if payload.get("query_status") == "ok":
+                    data_list = payload.get("data")
+                    item = data_list[0] if (isinstance(data_list, list) and data_list) else payload
+                    return {
+                        "matched": True,
+                        "source": "MalwareBazaar abuse.ch (Live API)",
+                        "family": item.get("signature") or "Malware",
+                        "threat_score": 100,
+                        "verdict": "malicious",
+                    }
+    except Exception as exc:
+        logger.debug("MalwareBazaar hash check skipped: %s", exc)
+
+    return None
+
+

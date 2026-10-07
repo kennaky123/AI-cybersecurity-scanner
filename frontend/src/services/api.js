@@ -111,3 +111,48 @@ export async function getModelMetricsByType(type) {
   return parseResponse(response)
 }
 
+export async function getFriendlyAIExplanation(scanData, apiKey = null) {
+  const response = await fetch(`${API_BASE_URL}/phishing/ai-explain`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ scan_data: scanData, api_key: apiKey }),
+  })
+  return parseResponse(response)
+}
+
+export async function detonateMalwareSandbox(payload) {
+  const response = await fetch(`${API_BASE_URL}/malware/sandbox-detonation`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  return parseResponse(response)
+}
+
+export async function lookupMalwareBazaar(sha256, filename = '', geminiApiKey = null, bazaarApiKey = null) {
+  const response = await fetch(`${API_BASE_URL}/malware/bazaar-lookup`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      sha256,
+      filename,
+      gemini_api_key: geminiApiKey,
+      bazaar_api_key: bazaarApiKey,
+    }),
+  })
+  return parseResponse(response)
+}
+
+export async function searchGoogleThreatIntel(sha256, filename = '', geminiApiKey = null) {
+  const response = await fetch(`${API_BASE_URL}/malware/google-threat-lookup`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      sha256,
+      filename,
+      gemini_api_key: geminiApiKey,
+    }),
+  })
+  return parseResponse(response)
+}
+

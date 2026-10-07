@@ -25,17 +25,22 @@ export default function ScanHistory() {
     const controller = new AbortController()
     setLoading(true)
     setError('')
-    getScanHistory({
-      page,
-      page_size: 15,
-      scan_type: scanType,
-      risk_level: riskLevel,
-      search,
-      sort_order: sortOrder,
-    }, controller.signal)
+    getScanHistory(
+      {
+        page,
+        page_size: 15,
+        scan_type: scanType,
+        risk_level: riskLevel,
+        search,
+        sort_order: sortOrder,
+      },
+      controller.signal
+    )
       .then(setData)
       .catch((requestError) => {
-        if (requestError.name !== 'AbortError') setError(requestError.message || 'Unable to load scan history.')
+        if (requestError.name !== 'AbortError') {
+          setError(requestError.message || 'Không thể tải lịch sử quét.')
+        }
       })
       .finally(() => {
         if (!controller.signal.aborted) setLoading(false)
@@ -48,50 +53,163 @@ export default function ScanHistory() {
     setPage(1)
   }
 
+  function handleResetFilters() {
+    setSearchInput('')
+    setSearch('')
+    setScanType('')
+    setRiskLevel('')
+    setSortOrder('desc')
+    setPage(1)
+  }
+
+  function handleExportHistory() {
+    if (!data.items?.length) return
+    const blob = new Blob([JSON.stringify(data.items, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const anchor = document.createElement('a')
+    anchor.href = url
+    anchor.download = `scan_history_page_${page}_${Date.now()}.json`
+    document.body.appendChild(anchor)
+    anchor.click()
+    document.body.removeChild(anchor)
+    URL.revokeObjectURL(url)
+  }
+
   const totalPages = Math.max(data.total_pages, 1)
+  const hasActiveFilters = Boolean(search || scanType || riskLevel || sortOrder !== 'desc')
 
   return (
-    <section className="history-page">
-      <p className="eyebrow">Audit trail</p>
-      <h1>Scan History</h1>
-      <p className="lead">Search, filter and review every completed scan.</p>
+    <section className="history-page bento-container">
+      {/* Page Heading */}
+      <div className="page-heading-row">
+        <div>
+          <p className="eyebrow">Nhật ký kiểm tra & Điều tra sự cố</p>
+          <h1>Lịch sử quét an ninh mạng</h1>
+          <p className="lead">Truy vấn, lọc và tra cứu toàn bộ hồ sơ kiểm tra URL phishing và tệp mã độc PE đã thực hiện.</p>
+        </div>
+        {data.items?.length > 0 && (
+          <button type="button" onClick={handleExportHistory} className="secondary-button">
+            📥 Xuất trang này (JSON)
+          </button>
+        )}
+      </div>
 
+      {/* Bento Stats Row */}
+      <div className="bento-row">
+        <div className="bento-cell bento-col-3" style={{ padding: '16px' }}>
+          <span className="bento-feature-pill-label">Tổng lượt quét ghi nhận</span>
+          <strong style={{ fontFamily: 'var(--font-display)', fontSize: '1.8rem', color: 'var(--color-accent)', display: 'block', marginTop: '4px' }}>
+            {data.total}
+          </strong>
+        </div>
+        <div className="bento-cell bento-col-3" style={{ padding: '16px' }}>
+          <span className="bento-feature-pill-label">Số trang kết quả</span>
+          <strong style={{ fontFamily: 'var(--font-display)', fontSize: '1.8rem', color: 'var(--color-ink)', display: 'block', marginTop: '4px' }}>
+            {totalPages}
+          </strong>
+        </div>
+        <div className="bento-cell bento-col-3" style={{ padding: '16px' }}>
+          <span className="bento-feature-pill-label">Bộ lọc loại quét</span>
+          <strong style={{ fontFamily: 'var(--font-mono)', fontSize: '1.1rem', color: scanType ? 'var(--color-safe)' : 'var(--color-muted)', display: 'block', marginTop: '8px' }}>
+            {scanType ? (scanType === 'PHISHING' ? '⌁ Phishing' : '◈ Mã độc PE') : 'Tất cả loại'}
+          </strong>
+        </div>
+        <div className="bento-cell bento-col-3" style={{ padding: '16px' }}>
+          <span className="bento-feature-pill-label">Bộ lọc mức rủi ro</span>
+          <strong style={{ fontFamily: 'var(--font-mono)', fontSize: '1.1rem', color: riskLevel ? 'var(--color-warning)' : 'var(--color-muted)', display: 'block', marginTop: '8px' }}>
+            {riskLevel || 'Tất cả mức'}
+          </strong>
+        </div>
+      </div>
+
+      {/* Linear Search & Filter Toolbar */}
       <div className="history-toolbar">
         <input
           type="search"
           value={searchInput}
           onChange={(event) => setSearchInput(event.target.value)}
-          placeholder="Search target, SHA-256 or prediction"
-          aria-label="Search scan history"
+          placeholder="⌕ Tìm kiếm mục tiêu (URL, tên tệp), SHA-256 hoặc nhãn kết quả…"
+          aria-label="Tìm kiếm lịch sử quét"
         />
-        <select value={scanType} onChange={(event) => updateFilter(setScanType, event.target.value)} aria-label="Filter by scan type">
-          <option value="">All types</option>
-          <option value="PHISHING">Phishing</option>
-          <option value="MALWARE">Malware</option>
+
+        <select
+          value={scanType}
+          onChange={(event) => updateFilter(setScanType, event.target.value)}
+          aria-label="Lọc theo loại quét"
+        >
+          <option value="">Tất cả loại quét</option>
+          <option value="PHISHING">Quét Phishing</option>
+          <option value="MALWARE">Quét Mã độc PE</option>
         </select>
-        <select value={riskLevel} onChange={(event) => updateFilter(setRiskLevel, event.target.value)} aria-label="Filter by risk">
-          <option value="">All risks</option>
-          <option value="LOW">Low</option>
-          <option value="MEDIUM">Medium</option>
-          <option value="HIGH">High</option>
-          <option value="CRITICAL">Critical</option>
+
+        <select
+          value={riskLevel}
+          onChange={(event) => updateFilter(setRiskLevel, event.target.value)}
+          aria-label="Lọc theo mức rủi ro"
+        >
+          <option value="">Tất cả mức rủi ro</option>
+          <option value="LOW">Mức Thấp (Low)</option>
+          <option value="MEDIUM">Mức Trung bình (Medium)</option>
+          <option value="HIGH">Mức Cao (High)</option>
+          <option value="CRITICAL">Nghiêm trọng (Critical)</option>
         </select>
-        <select value={sortOrder} onChange={(event) => updateFilter(setSortOrder, event.target.value)} aria-label="Sort by date">
-          <option value="desc">Newest first</option>
-          <option value="asc">Oldest first</option>
+
+        <select
+          value={sortOrder}
+          onChange={(event) => updateFilter(setSortOrder, event.target.value)}
+          aria-label="Sắp xếp theo ngày"
+        >
+          <option value="desc">Mới nhất trước</option>
+          <option value="asc">Cũ nhất trước</option>
         </select>
+
+        {hasActiveFilters && (
+          <button
+            type="button"
+            onClick={handleResetFilters}
+            className="secondary-button"
+            style={{ height: '36px', padding: '0 12px', fontSize: '0.8rem' }}
+          >
+            ✕ Xóa bộ lọc
+          </button>
+        )}
       </div>
 
       {error && <div className="scanner-error" role="alert">{error}</div>}
-      <article className={`history-card ${loading ? 'is-loading' : ''}`}>
-        <div className="card-heading"><h2>All scans</h2><span>{data.total} results</span></div>
-        <ScanTable scans={data.items} />
-        <div className="pagination">
-          <button type="button" disabled={page <= 1 || loading} onClick={() => setPage((value) => value - 1)}>Previous</button>
-          <span>Page {page} of {totalPages}</span>
-          <button type="button" disabled={page >= totalPages || loading} onClick={() => setPage((value) => value + 1)}>Next</button>
+
+      {/* Data Grid Bento Card */}
+      <div className="bento-cell" style={{ padding: 0, overflow: 'hidden' }}>
+        <div className="card-heading">
+          <h2 className="bento-cell-title">Danh sách kết quả kiểm tra</h2>
+          <span>
+            {loading ? 'Đang tải dữ liệu…' : `Hiển thị trang ${page} / ${totalPages} · Tổng số ${data.total} bản ghi`}
+          </span>
         </div>
-      </article>
+
+        <ScanTable scans={data.items} />
+
+        <div className="pagination">
+          <button
+            type="button"
+            disabled={page <= 1 || loading}
+            onClick={() => setPage((value) => value - 1)}
+            className="secondary-button"
+          >
+            ← Trang trước
+          </button>
+          <span>
+            Trang {page} trên {totalPages}
+          </span>
+          <button
+            type="button"
+            disabled={page >= totalPages || loading}
+            onClick={() => setPage((value) => value + 1)}
+            className="secondary-button"
+          >
+            Trang sau →
+          </button>
+        </div>
+      </div>
     </section>
   )
 }

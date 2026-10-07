@@ -402,6 +402,35 @@ class PEFeatureExtractor:
 
             if feature_version == 3:
                 try:
+                    # EMBER2024 0.1.0 imports Signify's pre-0.9 public class
+                    # name. Keep the current, security-fixed Signify release
+                    # and provide only the legacy iterator it needs.
+                    import signify.authenticode as authenticode
+
+                    if not hasattr(authenticode, "SignedPEFile"):
+                        from signify.authenticode.signed_file import SignedPEFile as ModernSignedPEFile
+
+                        class LegacySignedPEFile(ModernSignedPEFile):
+                            def iter_signed_datas(self):
+                                for signed_data in self.iter_embedded_signatures():
+                                    # Signify 0.9 exposes certificates through
+                                    # CertificateStore, while EMBER2024 slices
+                                    # the old list-shaped attribute.
+                                    class SignedDataAdapter:
+                                        def __init__(self, wrapped):
+                                            self._wrapped = wrapped
+
+                                        @property
+                                        def certificates(self):
+                                            return list(self._wrapped.certificates)
+
+                                        def __getattr__(self, name):
+                                            return getattr(self._wrapped, name)
+
+                                    yield SignedDataAdapter(signed_data)
+
+                        authenticode.SignedPEFile = LegacySignedPEFile
+
                     import thrember
                     v3_extractor = thrember.PEFeatureExtractor()
                     model_vector = v3_extractor.feature_vector(file_bytes)

@@ -9,7 +9,11 @@ joblib
 pandas
 numpy
 pefile
+thrember @ git+https://github.com/FutureComputing4AI/EMBER2024.git@0ef753e81d98bf209f71b03cd331dfc190b5b54d
+signify==0.9.2
 shap
 pytest
 httpx
 pip-audit
+playwright
+Pillow

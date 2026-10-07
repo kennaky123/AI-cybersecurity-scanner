@@ -76,16 +76,16 @@ Input -> validation -> feature extraction -> saved preprocessor
 
 ## 5. Technology Stack
 
-| Layer | Technology |
-|---|---|
-| Frontend | React, Vite, Recharts |
-| Backend | Python, FastAPI, Uvicorn, Pydantic |
-| Database | SQLite |
-| Machine learning | scikit-learn, LightGBM, XGBoost, joblib |
-| Data processing | pandas, NumPy |
-| PE static analysis | pefile |
-| Explainable AI | SHAP with feature-ablation fallback |
-| Testing and audit | pytest, FastAPI TestClient, pip-audit, npm audit |
+| Layer              | Technology                                       |
+| ------------------ | ------------------------------------------------ |
+| Frontend           | React, Vite, Recharts                            |
+| Backend            | Python, FastAPI, Uvicorn, Pydantic               |
+| Database           | SQLite                                           |
+| Machine learning   | scikit-learn, LightGBM, XGBoost, joblib          |
+| Data processing    | pandas, NumPy                                    |
+| PE static analysis | pefile                                           |
+| Explainable AI     | SHAP with feature-ablation fallback              |
+| Testing and audit  | pytest, FastAPI TestClient, pip-audit, npm audit |
 
 ## 6. Folder Structure
 
@@ -384,17 +384,27 @@ The Vite development proxy forwards application API calls to FastAPI. The UI pro
 - server-side history search, filters, sorting, and pagination;
 - responsive layouts and error/loading states.
 
+Each scan result also includes a Security Tutor panel. It translates extracted evidence into three learning sections: why the artifact is suspicious, what harmful capabilities are possible, and what the user should do next. The wording is intentionally probabilistic because static analysis cannot prove runtime behavior.
+
 For a classroom demo, start the backend first, then the frontend. Confirm `/health`, show the model metadata, scan a known benign URL/file and a controlled labeled test example, then review Dashboard and Scan History. Never use an unknown live executable for the demonstration.
 
 ## 15. API
 
-| Method | Endpoint | Purpose |
-|---|---|---|
-| GET | `/health` | Service health |
-| POST | `/api/phishing/analyze` | Analyze one HTTP(S) URL |
-| POST | `/api/malware/analyze` | Analyze one multipart `.exe` upload |
-| GET | `/api/dashboard` | Aggregates, charts, and recent scans |
-| GET | `/api/history` | Paginated and filtered scan history |
+| Method | Endpoint                            | Purpose                                                           |
+| ------ | ----------------------------------- | ----------------------------------------------------------------- |
+| GET    | `/health`                           | Service health                                                    |
+| POST   | `/api/phishing/analyze`             | Full phishing analysis and explainable risk report                |
+| POST   | `/api/phishing/url-analysis`        | Phase 1 URL + domain structure analysis                           |
+| POST   | `/api/phishing/html-analysis`       | Phase 2 bounded HTML/form analysis                                |
+| POST   | `/api/phishing/javascript-analysis` | Phase 3 static JavaScript analysis                                |
+| POST   | `/api/phishing/sandbox-analysis`    | Phase 6 isolated browser behavior analysis                        |
+| POST   | `/api/phishing/visual-analysis`     | Phase 7 screenshot and visual phishing analysis                   |
+| POST   | `/api/phishing/download-analysis`   | Phase 8 sandbox download + static malware analysis                |
+| POST   | `/api/threat-intelligence/lookup`   | Phase 4 provider-isolated URL/domain/IP/hash lookup               |
+| POST   | `/api/malware/analyze`              | Analyze one multipart `.exe` upload                               |
+| GET    | `/api/dashboard`                    | Aggregates, charts, and recent scans                              |
+| GET    | `/api/history`                      | Paginated and filtered scan history                               |
+| GET    | `/api/metrics`                      | Authentic evaluation metrics, confusion matrices, and comparisons |
 
 ### Phishing request
 
@@ -434,13 +444,13 @@ sort_order=asc|desc
 
 Important failure responses:
 
-| Status | Meaning |
-|---|---|
-| 400 | Invalid filename, extension, or empty upload |
-| 413 | Upload exceeds 25 MB |
-| 422 | Invalid URL, MZ/PE structure, or feature schema |
-| 503 | Required trained artifacts are unavailable or invalid |
-| 500 | Generic internal error; no traceback is returned |
+| Status | Meaning                                               |
+| ------ | ----------------------------------------------------- |
+| 400    | Invalid filename, extension, or empty upload          |
+| 413    | Upload exceeds 25 MB                                  |
+| 422    | Invalid URL, MZ/PE structure, or feature schema       |
+| 503    | Required trained artifacts are unavailable or invalid |
+| 500    | Generic internal error; no traceback is returned      |
 
 ## 16. Testing
 
@@ -482,7 +492,14 @@ Vite build: successful
 
 ## 17. Security Considerations
 
-- URLs are parsed locally; the phishing module never visits the submitted site.
+- The ML URL analysis is offline and never visits the submitted site. The optional Phase 2 HTML analysis performs a bounded, read-only fetch with timeout, size limits, no JavaScript execution, no form submission, no embedded-resource fetching, no automatic redirect following, and private-network/SSRF blocking.
+- Phase 3 JavaScript analysis inspects inline source and external script references without downloading or executing external scripts. API names are classified as observed static indicators, potential capabilities, or suspicious behavior combinations; a single API such as `document.cookie` is never treated as proof of data theft.
+- Phase 4 threat intelligence is provider-isolated. Configure `PHISHTANK_APP_KEY`, `PHISHTANK_ENABLED`, `OPENPHISH_ENABLED`, `OPENPHISH_API_URL`, `OPENPHISH_API_KEY`, `VIRUSTOTAL_API_KEY`, or `GOOGLE_SAFE_BROWSING_API_KEY` through the environment; keys are never stored in source code. A missing provider is `unavailable`, a lookup miss is `not_found` and is never converted to a safe verdict, and timeout/rate-limit/auth failures remain provider-local `error` results.
+- Phase 5 combines URL, domain, HTML, JavaScript, threat-intelligence, and the existing ML probability in `risk_report`. Evidence is typed as `OBSERVED`, `POTENTIAL`, `THREAT_INTELLIGENCE`, or `MODEL_PREDICTION`; potential capabilities are never presented as confirmed behavior. The aggregate thresholds are configurable triage policy, not scientifically calibrated probabilities.
+- Phase 6 provides a `SandboxProvider` abstraction and a deterministic mock provider. The default provider is `unavailable`; no browser is launched on the host until a real container/VM provider enforces the declared policy. Telemetry, redirect chains, external domains, events, and download metadata are collected through the provider contract; downloaded executables are always marked `execution_blocked`.
+- Phase 7 provides a `VisualAnalyzer`/`VisionProvider` abstraction using sandbox screenshots. The default Vision Provider is `unavailable`; the mock provider supports tests for OCR, brand/logo detection, login layout, and visual similarity. Visual similarity alone never creates a phishing verdict; domain mismatch, HTML evidence, and threat-intelligence context are reported separately.
+- Phase 8 connects observed sandbox downloads to a `MalwareScanner.scan_file()` abstraction. File metadata, SHA-256, type, entropy, strings, embedded URLs, signature status, and malware results are reported without executing the file. The phrase “Website delivered a suspicious executable” is emitted only when the sandbox observed a download and static malware evidence supports it.
+- Phase 9 adds a frontend-only tabbed phishing security dashboard. It presents Overview, URL, Domain, HTML, JavaScript, Network, Sandbox, Downloads, Threat Intelligence, and Evidence views, while keeping `OBSERVED BEHAVIOR`, `POTENTIAL CAPABILITY`, `THREAT INTELLIGENCE`, and `MODEL PREDICTION` visibly separate.
 - Malware analysis is static and read-only. The application never executes, imports, launches, or dynamically loads uploaded code.
 - Only plain `.exe` filenames are accepted; path components, control characters, bidi controls, other extensions, invalid MZ signatures, malformed PE structures, and files above 25 MB are rejected.
 - Uploads are streamed into a random temporary directory, hashed during transfer, closed, and deleted on both success and failure.
@@ -495,6 +512,18 @@ Vite build: successful
 - There is no random prediction, dummy model, hard-coded metric, or heuristic verdict fallback.
 
 ## 18. Limitations
+
+## 18.1 Product positioning and differentiator
+
+This project is not intended to outperform commercial antivirus products at real-time endpoint protection, cloud reputation, behavior monitoring, or sandboxing. Its differentiator is an auditable, offline static-triage workflow:
+
+- submitted URLs are analyzed lexically without visiting them;
+- uploaded PE files are parsed read-only and never executed;
+- results expose probability, risk score, SHA-256, extracted evidence, feature contributions, and limitations;
+- model artifacts, feature schemas, hashes, and held-out evaluation are reproducible and testable;
+- the UI includes a capability comparison page so users can clearly communicate this scope.
+
+The correct claim is therefore “explainable and reproducible security triage for learning and controlled analysis”, not “a replacement for antivirus”.
 
 - Dataset and model quality determine detection quality. This is an academic prototype, not a replacement for an enterprise security product.
 - No datasets or production models are bundled. Inference returns `503` until both pipelines are trained with real data.
@@ -622,4 +651,145 @@ Open the UI at <http://localhost:5173> to demonstrate the scanners, Dashboard, a
 
 ---
 
+## 14. Hướng dẫn Triển khai với Docker (Setup trên máy khác)
+
+Dự án đã được đóng gói hoàn chỉnh bằng Docker và Docker Compose để dễ dàng triển khai trên bất kỳ máy nào (Windows, Linux, macOS) mà không cần cấu hình thủ công môi trường Python/Node.js phức tạp.
+
+### 14.1. Yêu cầu Tiền đề
+- Đã cài đặt **Docker Desktop** (hoặc **Docker Engine** + **Docker Compose v2**).
+- Đảm bảo Docker daemon đang chạy (`docker --version`).
+
+### 14.2. Các bước Thiết lập & Khởi chạy
+
+1. **Clone repository về máy mới:**
+   ```bash
+   git clone https://github.com/kennaky123/AI-cybersecurity-scanner.git
+   cd AI-cybersecurity-scanner
+   ```
+
+2. **Cấu hình biến môi trường (.env):**
+   Sao chép file mẫu `.env.example` thành `.env` và điền API key của bạn:
+   ```bash
+   # Trên Linux/macOS
+   cp .env.example .env
+
+   # Trên Windows PowerShell
+   Copy-Item .env.example .env
+   ```
+   > **Gợi ý API Key:**
+   > - `GEMINI_API_KEY`: Lấy miễn phí tại [Google AI Studio](https://aistudio.google.com/app/apikey) để kích hoạt AI Security Tutor & Explainer.
+   > - `HYBRID_ANALYSIS_API_KEY`: Lấy miễn phí tại [Hybrid Analysis](https://www.hybrid-analysis.com/) nếu dùng tính năng nổ sandbox động.
+   > - `MALWAREBAZAAR_API_KEY`: Lấy tại [abuse.ch MalwareBazaar](https://bazaar.abuse.ch/) để tra cứu tình báo mã độc quốc tế.
+
+3. **Khởi chạy toàn bộ hệ thống bằng Docker Compose:**
+   ```bash
+   docker-compose up --build -d
+   ```
+   Lệnh trên sẽ tự động:
+   - Build backend image chạy Python 3.11, cài đặt FastAPI, thư viện ML, và cài đặt Playwright Chromium headless sandbox.
+   - Build frontend image chạy Node.js 20, Vite và React UI/UX Pro Max console.
+   - Mount thư mục `models/` để backend tự động nạp các model đã huấn luyện.
+   - Thiết lập reverse proxy kết nối frontend và backend.
+
+4. **Kiểm tra trạng thái & Logs:**
+   ```bash
+   # Xem trạng thái các container
+   docker-compose ps
+
+   # Xem logs thời gian thực của backend
+   docker-compose logs -f backend
+
+   # Kiểm tra endpoint health check
+   curl http://localhost:8000/health
+   ```
+
+5. **Truy cập ứng dụng:**
+   - **Giao diện người dùng (React HUD):** `http://localhost:5173`
+   - **Backend API Docs (Swagger UI):** `http://localhost:8000/docs`
+   - **ReDoc:** `http://localhost:8000/redoc`
+
+6. **Dừng hệ thống:**
+   ```bash
+   docker-compose down
+   ```
+
+---
+
+## 15. Hướng dẫn Huấn luyện Mô hình (Các Model cần Train từ lần Push cuối)
+
+### 15.1. Trạng thái Artifacts từ lần Push trước
+- **Lần push trước (`787881b`)**: Repository chỉ mới lưu trữ mô hình Phishing (`models/phishing_model.joblib`), trong khi mô hình **Malware PE chưa được đưa lên Git** do giới hạn dung lượng và điều kiện bản quyền bộ dữ liệu.
+- **Lần push hiện tại**: Cả 2 mô hình đã được đóng gói và tích hợp vào repo (`models/phishing_model.joblib` ~1 MB và `models/malware_model.joblib` ~3.7 MB). Khi clone về máy mới, hệ thống **đã có thể chạy ngay lập tức** mà không bắt buộc phải train lại.
+
+Tuy nhiên, nếu bạn muốn **tự huấn luyện lại các mô hình từ đầu** trên máy mới với dữ liệu cập nhật, hãy thực hiện theo quy trình chuẩn sau:
+
+---
+
+### 15.2. Huấn luyện Mô hình Phishing (URL Lexical Classifier)
+
+Mô hình này trích xuất các đặc trưng từ tính chất từ vựng (lexical), entropy, cấu trúc domain, giao thức HTTPS, và tham số của URL.
+
+1. **Chuẩn bị dữ liệu huấn luyện:**
+   ```powershell
+   # Cách 1: Tải và chuẩn bị bộ dữ liệu chuẩn
+   python -m ml.phishing.prepare_dataset
+
+   # Cách 2: Hoặc tạo bộ dữ liệu hiện đại PhiUSIIL
+   python -m ml.phishing.build_modern_dataset
+   ```
+   Dữ liệu sau khi xử lý sẽ được lưu tại `data/processed/phishing.csv`.
+
+2. **Huấn luyện và so sánh 3 thuật toán (Random Forest vs XGBoost vs LightGBM):**
+   ```powershell
+   python -m ml.phishing.train --model all --dataset-name PhiUSIIL
+   ```
+   - Quá trình sẽ chia dữ liệu theo tỉ lệ cố định `70/15/15` (Train / Val / Test) với seed `42` chống rò rỉ dữ liệu.
+   - Thuật toán có F1-score & ROC-AUC cao nhất trên tập Validation sẽ được chọn làm Production Model.
+   - **Artifacts xuất ra:**
+     - `models/phishing_model.joblib`: Trọng số mô hình tốt nhất
+     - `models/phishing_preprocessor.joblib`: Bộ chuẩn hóa đặc trưng
+     - `models/phishing_model_metadata.json`: Siêu dữ liệu kiểm toán và mã băm SHA-256
+
+---
+
+### 15.3. Huấn luyện Mô hình Malware PE (Windows Static PE Classifier)
+
+Mô hình này phân tích tĩnh nhị phân Portable Executable (.exe) qua 2.381 chiều đặc trưng (cấu trúc Section, Entropy, PE Header, Import/Export APIs, Byte histograms) mà tuyệt đối **không thực thi tệp**.
+
+1. **Chuẩn bị dữ liệu mẫu tĩnh (EMBER hoặc BODMAS):**
+   Tải bộ dữ liệu vectorized EMBER (`X_train.dat`, `y_train.dat`) hoặc BODMAS (`bodmas.npz`) và đặt vào thư mục tương ứng:
+   - EMBER: Đặt vào `data/raw/ember/`
+   - BODMAS: Đặt vào `data/raw/bodmas/`
+
+2. **Trích xuất ma trận đặc trưng:**
+   ```powershell
+   # Nếu dùng dữ liệu EMBER (lấy tập mẫu cân bằng 50.000 benign + 50.000 malware):
+   python -m ml.malware.prepare_dataset --dataset ember --max-samples 100000 --output data/processed/malware_features.npz
+
+   # Hoặc nếu dùng dữ liệu BODMAS:
+   python -m ml.malware.prepare_dataset --dataset bodmas --output data/processed/malware_features.npz
+   ```
+
+3. **Huấn luyện và đánh giá mô hình:**
+   ```powershell
+   python -m ml.malware.train --model all --dataset-name EMBER
+   ```
+   - Huấn luyện và đo lường đồng thời Random Forest, XGBoost và LightGBM.
+   - Tự động đánh giá ma trận nhầm lẫn (True Negative, False Positive, False Negative, True Positive) trên tập Test độc lập.
+   - **Artifacts xuất ra:**
+     - `models/malware_model.joblib`: Mô hình PE classifier đã huấn luyện
+     - `models/malware_preprocessor.joblib`: Preprocessor tương ứng
+     - `models/malware_model_metadata.json`: Báo cáo chi tiết metrics, confusion matrix và SHA-256 hash của model
+
+---
+
+### 15.4. Xác thực Tính Toàn vẹn (Fail-Closed Integrity Check)
+
+Hệ thống backend thực hiện cơ chế **Fail-Closed**:
+- Trước khi nạp bất kỳ model nào vào bộ nhớ, backend tự tính toán mã băm SHA-256 của file `.joblib` và đối chiếu với giá trị lưu trong file `metadata.json`.
+- Nếu file mô hình bị can thiệp, sửa đổi trái phép hoặc không khớp mã băm, backend sẽ từ chối khởi động và trả về HTTP `503 Service Unavailable` nhằm ngăn chặn tấn công đầu độc mô hình (Model Poisoning / Tampering).
+
+---
+
 For a submission package, include this repository, dataset citations/licenses, generated metadata JSON files, screenshots of the five UI pages, and a short report describing the real training results. Do not include malware binaries, private datasets, virtual environments, `node_modules`, or temporary upload files.
+

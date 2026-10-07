@@ -13,3 +13,11 @@ class ModelExplanationResponse(BaseModel):
     increasing_risk: list[FeatureContributionResponse]
     decreasing_risk: list[FeatureContributionResponse]
     limitation: str | None
+
+
+class SecurityEducationResponse(BaseModel):
+    summary: str
+    evidence: list[str]
+    possible_capabilities: list[str]
+    recommended_actions: list[str]
+    limitation: str

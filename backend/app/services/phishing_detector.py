@@ -19,6 +19,12 @@ from .feature_extractor import FeatureExtractor
 from .artifact_validation import validate_artifact_bundle, validate_artifact_hashes
 from .explainability import ExplainabilityService, ModelExplanation
 from .risk_engine import RiskEngine
+from .security_education import SecurityEducation, phishing_education
+from .url_analyzer import DomainAnalyzer, URLAnalyzer, AnalyzerResult
+from .html_analyzer import HTMLAnalysis
+from .javascript_analyzer import JavaScriptAnalysis
+from .risk_engine import RiskReport
+from .threat_intelligence import ThreatIntelResult
 
 logger = logging.getLogger(__name__)
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
@@ -131,6 +137,13 @@ class PhishingAnalysis:
     features: dict[str, int | float]
     reasons: list[str]
     explanation: ModelExplanation = field(default_factory=ModelExplanation.unavailable)
+    education: SecurityEducation = field(default_factory=SecurityEducation.unavailable)
+    url_analysis: AnalyzerResult = field(default_factory=AnalyzerResult.unavailable)
+    domain_analysis: AnalyzerResult = field(default_factory=AnalyzerResult.unavailable)
+    html_analysis: HTMLAnalysis = field(default_factory=lambda: HTMLAnalysis(0, "", status="UNAVAILABLE"))
+    javascript_analysis: JavaScriptAnalysis = field(default_factory=lambda: JavaScriptAnalysis(0))
+    threat_intelligence: list[ThreatIntelResult] = field(default_factory=list)
+    risk_report: RiskReport = field(default_factory=RiskReport.unavailable)
 
 
 class PhishingDetector:
@@ -153,6 +166,7 @@ class PhishingDetector:
         self._feature_extractor = FeatureExtractor()
         self._risk_engine = RiskEngine()
         self._explainability = ExplainabilityService()
+        self._url_analyzer = URLAnalyzer()
 
     def _signature(self) -> tuple[int, ...]:
         paths = (self.model_path, self.preprocessor_path, self.metadata_path)
@@ -216,6 +230,8 @@ class PhishingDetector:
 
         # BƯỚC 2: Trích xuất 18 đặc trưng từ vựng offline (không gửi request mạng đến trang đích)
         features = self._feature_extractor.extract_url_features(url)
+        url_analysis = self._url_analyzer.analyze(url)
+        domain_analysis = self._url_analyzer.domain_analyzer.analyze(url)
         feature_frame = pd.DataFrame([features], columns=FEATURE_NAMES)
         transformed = preprocessor.transform(feature_frame)
 
@@ -264,6 +280,9 @@ class PhishingDetector:
             features=features,
             reasons=reasons,
             explanation=explanation,
+            education=phishing_education(features, prediction),
+            url_analysis=url_analysis,
+            domain_analysis=domain_analysis,
         )
 
     @staticmethod

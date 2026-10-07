@@ -7,6 +7,9 @@ __pycache__/
 .pytest_*/
 .venv/
 venv/
+.tmp/
+.env
+.claude/
 
 # Runtime data and trained artifacts
 *.db
@@ -16,6 +19,9 @@ models/*
 !models/phishing_model.joblib
 !models/phishing_preprocessor.joblib
 !models/phishing_model_metadata.json
+!models/malware_model.joblib
+!models/malware_preprocessor.joblib
+!models/malware_model_metadata.json
 data/*
 !data/.gitkeep
 !data/raw/

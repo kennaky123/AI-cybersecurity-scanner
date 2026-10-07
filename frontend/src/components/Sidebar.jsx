@@ -1,9 +1,9 @@
 const navigation = [
-  { id: 'dashboard', label: 'Dashboard', icon: '⌂' },
-  { id: 'phishing', label: 'Phishing Scanner', icon: '⌁' },
-  { id: 'malware', label: 'Malware Scanner', icon: '◈' },
-  { id: 'history', label: 'Scan History', icon: '↻' },
-  { id: 'metrics', label: 'Model Metrics', icon: '▥' },
+  { id: 'dashboard', label: 'Tổng quan', icon: '⌂', hotkey: '1' },
+  { id: 'phishing', label: 'Quét phishing', icon: '⌁', hotkey: '2' },
+  { id: 'malware', label: 'Quét mã độc', icon: '◈', hotkey: '3' },
+  { id: 'history', label: 'Lịch sử quét', icon: '↻', hotkey: '4' },
+  { id: 'metrics', label: 'Vì sao dùng app này?', icon: '▥', hotkey: '5' },
 ]
 
 export default function Sidebar({ activePage, onNavigate }) {
@@ -13,9 +13,10 @@ export default function Sidebar({ activePage, onNavigate }) {
         <span className="brand-mark">AI</span>
         <div>
           <strong>Cybersecurity</strong>
-          <span>Scanner</span>
+          <span>Workbench v2.0</span>
         </div>
       </div>
+      
       <nav aria-label="Điều hướng chính">
         {navigation.map((item) => (
           <button
@@ -24,12 +25,19 @@ export default function Sidebar({ activePage, onNavigate }) {
             onClick={() => onNavigate(item.id)}
             type="button"
           >
-            <span aria-hidden="true">{item.icon}</span>
-            {item.label}
+            <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span aria-hidden="true">{item.icon}</span>
+              {item.label}
+            </span>
+            <kbd className="nav-hotkey">{item.hotkey}</kbd>
           </button>
         ))}
       </nav>
-      <p className="phase-badge">Phase 10 · Explainable AI</p>
+      
+      <div className="phase-badge">
+        <span>Giai đoạn 10 · AI có giải thích</span>
+        <span className="phase-dot" title="Hệ thống hoạt động" />
+      </div>
     </aside>
   )
 }
